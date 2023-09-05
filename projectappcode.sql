@@ -37,7 +37,7 @@ FROM
   AppleStore 
 WHERE 
   user_rating > 0;
--- Transform unit of app size
+-- Transform unit of app size and add as new column
 ALTER TABLE AppleStore_ValidRatings
 ADD size_mb AS ROUND((size_bytes / (1024.0 * 1024.0)),0);
 -- Find the number of apps
@@ -99,53 +99,72 @@ FROM
   AppleStore_ValidRatings;
 -- Overall length of description
 SELECT 
-  MIN(
-    LENGTH(app_desc)
-  ) AS min_letters, 
-  MAX(
-    LENGTH(app_desc)
-  ) AS max_letters, 
-  AVG(
-    LENGTH(app_desc)
-  ) AS avg_letters 
+  MIN(LEN(app_desc)) AS min_letters, 
+  MAX(LEN(app_desc)) AS max_letters, 
+  AVG(LEN(app_desc)) AS avg_letters 
 FROM 
   AppleStore_ValidRatings AS a 
   LEFT JOIN AppleStore_description AS b ON a.id = b.id;
--- Analysis insights
+-- Analyze insights
 -- User rate based on app type
+WITH CTE AS (
+  SELECT 
+    CASE WHEN price > 0 THEN 'Paid' 
+         ELSE 'FREE' END AS App_type, 
+    user_rating
+  FROM 
+    AppleStore_ValidRatings
+)
 SELECT 
-  CASE WHEN price > 0 THEN 'Paid' ELSE 'FREE' END AS App_type, 
+  App_type, 
   AVG(user_rating) AS avg_rating 
 FROM 
-  AppleStore_ValidRatings 
+  CTE
 GROUP BY 
   App_type;
+
 -- User rate based on price
+WITH CTE AS (
+  SELECT 
+    CASE WHEN price = 0 THEN 'Free' 
+         WHEN price BETWEEN 0.01 AND 1.99 THEN 'Low price' 
+         WHEN price BETWEEN 2.00 AND 3.99 THEN 'Medium price' 
+         ELSE 'High price' END AS price_category, 
+    user_rating
+  FROM 
+    AppleStore_ValidRatings 
+)
 SELECT 
-  CASE WHEN price = 0 THEN 'Free' WHEN price BETWEEN 0.01 
-  AND 1.99 THEN 'Low price' WHEN price BETWEEN 2.00 
-  AND 3.99 THEN 'Medium price' ELSE 'High price' END AS price_category, 
+  price_category, 
   COUNT(*) AS app_count, 
   AVG(user_rating) AS average_rating 
 FROM 
-  AppleStore_ValidRatings 
+  CTE
 GROUP BY 
-  price_category 
+  price_category
 ORDER BY 
   average_rating DESC;
 -- User rate based on size_bytes
+WITH CTE AS (
+  SELECT 
+    CASE WHEN size_bytes <= 200000000 THEN 'Average' ELSE 'Large' END AS size_category, 
+    user_rating
+  FROM 
+    AppleStore_ValidRatings 
+)
 SELECT 
-  CASE WHEN size_bytes <= 200000000 THEN 'Average' ELSE 'Large' END AS size_category, 
+  size_category, 
   COUNT(*) AS app_count, 
   AVG(user_rating) AS average_rating 
 FROM 
-  AppleStore_ValidRatings 
+  CTE
 GROUP BY 
   size_category 
 ORDER BY 
   average_rating DESC;
+
 -- Identify low-rated review genres
-SELECT 
+SELECT TOP(10)
   prime_genre, 
   COUNT(*) AS app_count, 
   AVG(user_rating) AS avg_rating 
@@ -154,35 +173,47 @@ FROM
 GROUP BY 
   prime_genre 
 ORDER BY 
-  avg_rating ASC 
-LIMIT 
-  10;
+  avg_rating ASC;
 -- Rating based on language support
+WITH CategorizedApps AS (
+  SELECT 
+    CASE WHEN lang_num = 0 THEN 'Default_lang'
+         WHEN lang_num <= 5 THEN '1-5'
+         WHEN lang_num <= 10 THEN '6-10'
+         WHEN lang_num <= 15 THEN '11-15'
+         WHEN lang_num <= 20 THEN '16-20'
+         ELSE '20+' END AS Num_lang_support, 
+    user_rating 
+  FROM 
+    AppleStore_ValidRatings
+)
 SELECT 
   Num_lang_support, 
   COUNT(*) AS app_count, 
   AVG(user_rating) AS average_rating 
 FROM 
-  (
-    SELECT 
-      CASE WHEN lang_num = 0 THEN 'Default_lang' WHEN lang_num <= 5 THEN '1-5' WHEN lang_num <= 10 THEN '6-10' WHEN lang_num <= 15 THEN '11-15' WHEN lang_num <= 20 THEN '16-20' ELSE '20+' END AS Num_lang_support, 
-      user_rating 
-    FROM 
-      AppleStore_ValidRatings
-  ) AS CategorizedApps 
+  CategorizedApps 
 GROUP BY 
   Num_lang_support 
 ORDER BY 
   average_rating DESC;
 -- Rating based on length of description
+WITH DescriptionLength AS (
+  SELECT 
+    a.user_rating,
+    CASE WHEN LEN(b.app_desc) < 500 THEN 'Short'
+         WHEN LEN(b.app_desc) BETWEEN 500 AND 1500 THEN 'Medium'
+         ELSE 'Long' END AS description_length_group
+  FROM 
+    AppleStore_ValidRatings AS a 
+    LEFT JOIN AppleStore_description AS b ON a.id = b.id 
+)
 SELECT 
-  CASE WHEN LENGTH(b.app_desc) < 500 THEN 'Short' WHEN LENGTH(b.app_desc) BETWEEN 500 
-  AND 1500 THEN 'Medium' ELSE 'Long' END AS description_length_group, 
+  description_length_group, 
   COUNT(*) AS app_count, 
-  AVG(a.user_rating) AS average_rating 
+  AVG(user_rating) AS average_rating 
 FROM 
-  AppleStore_ValidRatings AS a 
-  LEFT JOIN AppleStore_description AS b ON a.id = b.id 
+  DescriptionLength 
 GROUP BY 
   description_length_group;
 -- Top-rated app in each genre
