@@ -75,10 +75,7 @@ GROUP BY
 SELECT 
   MIN(price) AS Min_price, 
   MAX(price) AS Max_price, 
-  ROUND(
-    AVG(price), 
-    2
-  ) AS Avg_price 
+  ROUND(AVG(price), 2) AS Avg_price 
 FROM 
   AppleStore_ValidRatings 
 WHERE 
