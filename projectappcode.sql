@@ -37,6 +37,9 @@ FROM
   AppleStore 
 WHERE 
   user_rating > 0;
+-- Transform unit of app size
+ALTER TABLE AppleStore_ValidRatings
+ADD size_mb AS ROUND((size_bytes / (1024.0 * 1024.0)),0);
 -- Find the number of apps
 SELECT 
   COUNT(DISTINCT id) AS Appid_num 
@@ -89,21 +92,9 @@ FROM
   AppleStore_ValidRatings;
 -- Overall size_bytes
 SELECT 
-  MIN(size_bytes) AS Min_size, 
-  MAX(size_bytes) AS Max_size, 
-  AVG(size_bytes) AS Avg_size, 
-  ROUND(
-    MIN(size_bytes) / (1024.0 * 1024.0), 
-    2
-  ) AS min_size_mb, 
-  ROUND(
-    MAX(size_bytes) / (1024.0 * 1024.0), 
-    2
-  ) AS max_size_mb, 
-  ROUND(
-    AVG(size_bytes) / (1024.0 * 1024.0), 
-    2
-  ) AS avg_size_mb 
+  MIN(size_mb) AS Min_size, 
+  MAX(size_mb) AS Max_size, 
+  AVG(size_mb) AS Avg_size, 
 FROM 
   AppleStore_ValidRatings;
 -- Overall length of description
