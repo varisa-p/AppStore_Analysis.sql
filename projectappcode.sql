@@ -114,7 +114,7 @@ WITH CTE AS (
     user_rating
   FROM 
     AppleStore_ValidRatings
-)
+) -- create CTE to define categories
 SELECT 
   App_type, 
   AVG(user_rating) AS avg_rating 
